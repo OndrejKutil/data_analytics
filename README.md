@@ -4,6 +4,8 @@
 
 This repository contains a collection of financial and investment data analytics projects that demonstrate my skills in data analysis, machine learning, and financial modeling. These projects showcase real-world applications of data science techniques in the finance domain using Python.
 
+**Note:** The case studies and project scenarios in this repository were generated with AI assistance, but all code implementation, analysis, and technical work are my original contributions.
+
 ## Skills Demonstrated
 
 - Financial data acquisition and preprocessing
