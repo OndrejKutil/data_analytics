@@ -10,34 +10,21 @@ This repository contains a collection of financial and investment data analytics
 
 - Financial data acquisition and preprocessing
 - Exploratory data analysis of market trends
-- Time series forecasting for stock prices
 - Portfolio optimization algorithms
-- Risk assessment models
 - Sentiment analysis of financial news
-- Machine learning for credit scoring
-- Automated trading strategy backtesting
 
 ## Technologies & Libraries Used
 
 - **Data Manipulation:** Pandas, NumPy
 - **Data Visualization:** Matplotlib, Seaborn, Plotly
-- **Machine Learning:** Scikit-learn, TensorFlow, PyTorch
 - **Financial Libraries:** yfinance, pandas-datareader, pyfolio
-- **Natural Language Processing:** NLTK, spaCy, Transformers
 - **Statistical Analysis:** SciPy, statsmodels
-- **Web Scraping:** BeautifulSoup, Selenium
-- **Dashboard Creation:** Dash, Streamlit
 
 ## What I've Learned
 
 - How to clean and preprocess inconsistent financial datasets
-- Techniques for handling time-series data with irregular intervals
 - The importance of feature engineering in financial predictions
-- How to evaluate model performance in the context of financial risk
-- Methods for avoiding overfitting in market prediction models
-- Strategies for interpreting complex model outputs for actionable insights
 - Ethical considerations in algorithmic trading and investment recommendations
-- The impact of market psychology on quantitative models
 
 ## Future Directions
 
