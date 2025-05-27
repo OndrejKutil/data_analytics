@@ -1,42 +1,67 @@
-# Finance Analytics with AI
+# 📊 Finance Analytics Portfolio with Python & AI
 
 ## Overview
 
-This repository contains a collection of financial and investment data analytics projects that demonstrate my skills in data analysis, machine learning, and financial modeling. These projects showcase real-world applications of data science techniques in the finance domain using Python.
+Welcome to my personal portfolio of financial analytics projects, built using Python. This repository showcases **data-driven case studies** in portfolio modeling, market analysis, and investment research. Each project demonstrates real-world data analysis workflows, exploratory data analysis (EDA), financial modeling, and custom visualizations using industry-standard tools.
 
-**Note:** The case studies and project scenarios in this repository were generated with AI assistance, but all code implementation, analysis, and technical work are my original contributions.
+> 🧠 **Note**: While case study prompts were generated with AI assistance, all **code implementation**, **analysis**, and **interpretation** are entirely my original work.
 
-## Skills Demonstrated
+---
 
-- Financial data acquisition and preprocessing
-- Exploratory data analysis of market trends
-- Portfolio optimization algorithms
-- Sentiment analysis of financial news
+## 🔍 Key Projects
 
-## Technologies & Libraries Used
+### **[Efficient Frontier Optimization](./4_efficient_frontier/)**
 
-- **Data Manipulation:** Pandas, NumPy
-- **Data Visualization:** Matplotlib, Seaborn, Plotly
-- **Financial Libraries:** yfinance, pandas-datareader, pyfolio
-- **Statistical Analysis:** SciPy, statsmodels
+📌 My favorite and most comprehensive case study.  
+This project demonstrates:
 
-## What I've Learned
+- Portfolio construction using historical asset returns
+- Risk-return optimization with the **Efficient Frontier** model
+- Custom **matplotlib visualizations** of Sharpe ratios, volatility, and return tradeoffs
+- Use of **pandas** for financial return calculations and cleaning
 
-- How to clean and preprocess inconsistent financial datasets
-- The importance of feature engineering in financial predictions
-- Ethical considerations in algorithmic trading and investment recommendations
+**📷 Sample Visualization**  
+<img src="./4_efficient_frontier/efiicient_frontier.png" alt="Efficient Frontier Plot" width="800"/>
 
-## Future Directions
+---
 
-- Incorporate alternative data sources (social media, satellite imagery)
-- Explore reinforcement learning for optimal trading strategies
-- Develop ESG (Environmental, Social, Governance) scoring models
-- Research applications of explainable AI in financial decision-making
+## 💼 Skills Demonstrated
 
-## Contact
+- 📈 **EDA** of financial datasets (log returns, drawdowns, correlations)
+- 🔁 Time series preprocessing (resampling, rolling averages)
+- 📊 Advanced plotting with **matplotlib**, **seaborn**, and **Plotly**
+- 🧮 Financial modeling: portfolio optimization, CAPM, value-at-risk
+- 🧹 Robust data wrangling and cleaning using **pandas**
 
-Feel free to reach out for collaborations or discussions about financial analytics!
+---
 
-## Disclaimer
+## 🧰 Tech Stack
 
-These projects are for educational and demonstration purposes only. They should not be considered as financial advice or recommendations for investment decisions.
+| Purpose | Tools & Libraries |
+|--------|------------------|
+| Data Handling | `pandas`, `numpy`, `yfinance`, `pandas-datareader` |
+| Visualization | `matplotlib`, `seaborn`, `plotly` |
+| Analytics & Stats | `scipy`, `statsmodels` |
+| Risk/Portfolio Modeling | `pyfolio`, `cvxpy` (where applicable) |
+
+---
+
+## 📚 What I’ve Learned
+
+- Cleaning and structuring financial time series for analysis
+- Creating reusable EDA workflows for return and volatility analysis
+- Applying **finance concepts** (Sharpe ratio, diversification, correlation matrices)
+- Balancing interpretability vs. accuracy in model design
+
+---
+
+## 📬 Contact
+
+Want to collaborate or chat about finance, analytics, or Python?  
+👉 Connect with me on [LinkedIn](linkedin.com/in/ondřej-kutil-342a97256) or email me at `kutil.ondra@outlook.cz`.
+
+---
+
+## ⚠️ Disclaimer
+
+All content is for **educational and demonstration purposes only**. Nothing here constitutes investment advice.
