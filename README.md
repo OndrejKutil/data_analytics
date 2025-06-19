@@ -1,24 +1,25 @@
-# 📊 Finance Analytics Portfolio with Python & AI
+# 📊 Data Analytics Case Studies – Python Portfolio
 
 ## Overview
 
-Welcome to my personal portfolio of financial analytics projects, built using Python. This repository showcases **data-driven case studies** in portfolio modeling, market analysis, and investment research. Each project demonstrates real-world data analysis workflows, exploratory data analysis (EDA), financial modeling, and custom visualizations using industry-standard tools.
+This repository is a collection of case studies where I apply **data analytics techniques** to real-world datasets, with a focus on **finance, investment, and time series analysis**.
 
-> 🧠 **Note**: While case study prompts were generated with AI assistance, all **code implementation**, **analysis**, and **interpretation** are entirely my original work.
+Each project demonstrates the full data workflow — from **data cleaning** and **exploratory data analysis (EDA)**, to **modeling**, **visualization**, and **communication of insights**.  
+The goal is not just to build technical skill, but to tell a story with data that drives understanding and decision-making.
 
 ---
 
-## 🔍 Key Projects
+## 🔍 Sample Case Study
 
-### **[Efficient Frontier Optimization](./4_efficient_frontier/)**
+### **[Efficient Frontier Portfolio Optimization](./4_efficient_frontier/)**
 
-📌 My favorite and most comprehensive case study.  
-This project demonstrates:
+📌 This is my most developed and comprehensive case study.  
+It demonstrates how to:
 
-- Portfolio construction using historical asset returns
-- Risk-return optimization with the **Efficient Frontier** model
-- Custom **matplotlib visualizations** of Sharpe ratios, volatility, and return tradeoffs
-- Use of **pandas** for financial return calculations and cleaning
+- Construct portfolios using historical return data  
+- Model the risk-return tradeoff using the **Efficient Frontier**  
+- Visualize Sharpe ratios, volatility, and returns  
+- Interpret and communicate results to non-technical stakeholders
 
 **📷 Sample Visualization**  
 <img src="./4_efficient_frontier/efiicient_frontier.png" alt="Efficient Frontier Plot" width="800"/>
@@ -27,41 +28,52 @@ This project demonstrates:
 
 ## 💼 Skills Demonstrated
 
-- 📈 **EDA** of financial datasets (log returns, drawdowns, correlations)
-- 🔁 Time series preprocessing (resampling, rolling averages)
-- 📊 Advanced plotting with **matplotlib**, **seaborn**, and **Plotly**
-- 🧮 Financial modeling: portfolio optimization, CAPM, value-at-risk
-- 🧹 Robust data wrangling and cleaning using **pandas**
+- 📈 **Exploratory data analysis (EDA)** on financial datasets  
+- 🧹 Data cleaning, wrangling, and transformation using **pandas**  
+- 🧠 Financial modeling: Sharpe ratio, diversification, return distributions  
+- 📊 Visualizations with **matplotlib**, **seaborn**, and **Plotly**  
+- ⏳ Time series analysis: resampling, rolling stats, volatility tracking  
+- 💡 Drawing insights from data and presenting them clearly
 
 ---
 
 ## 🧰 Tech Stack
 
-| Purpose | Tools & Libraries |
-|--------|------------------|
-| Data Handling | `pandas`, `numpy`, `yfinance`, `pandas-datareader` |
+| Area | Tools |
+|------|-------|
+| Data Analysis | `pandas`, `numpy` |
+| Finance & Markets | `yfinance`, `pandas-datareader`, `pyfolio` |
 | Visualization | `matplotlib`, `seaborn`, `plotly` |
-| Analytics & Stats | `scipy`, `statsmodels` |
-| Risk/Portfolio Modeling | `pyfolio`, `cvxpy` (where applicable) |
+| Modeling & Optimization | `scipy`, `statsmodels`, `cvxpy` |
 
 ---
 
 ## 📚 What I’ve Learned
 
-- Cleaning and structuring financial time series for analysis
-- Creating reusable EDA workflows for return and volatility analysis
-- Applying **finance concepts** (Sharpe ratio, diversification, correlation matrices)
-- Balancing interpretability vs. accuracy in model design
+- End-to-end analytical thinking: from messy raw data to final insights  
+- Translating finance theory (risk, return, Sharpe) into working Python code  
+- Creating visualizations that clarify tradeoffs and decision points  
+- Structuring a case study repository to communicate value to recruiters or collaborators
+
+---
+
+## 🧭 Use Cases
+
+This repo is designed to showcase:
+- My growth as a data analyst  
+- My ability to **learn independently** and apply concepts  
+- Real project workflows I could contribute in internship or junior analyst roles
 
 ---
 
 ## 📬 Contact
 
-Want to collaborate or chat about finance, analytics, or Python?  
-👉 Connect with me on [LinkedIn](linkedin.com/in/ondřej-kutil-342a97256) or email me at `kutil.ondra@outlook.cz`.
+📫 Want to connect or ask about a project?  
+[LinkedIn](https://linkedin.com/in/ondřej-kutil-342a97256) • `kutil.ondra@outlook.cz`
 
 ---
 
 ## ⚠️ Disclaimer
 
-All content is for **educational and demonstration purposes only**. Nothing here constitutes investment advice.
+All work here is for **educational and demonstration purposes only**.  
+This is not investment advice.
