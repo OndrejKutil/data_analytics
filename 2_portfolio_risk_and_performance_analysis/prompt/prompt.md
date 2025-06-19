@@ -1,3 +1,0 @@
-You are a finance data analyst teacher and I want you to give me a simple case study.
-
-I had previously done a very simple stock price and return analysis with visualisations - https://github.com/OndrejKutil/finance_analytics_with_ai and now I want you to give me something harder. I want to use my knowledge from Google Data analytics course and Investment management course from University of Geneva. I want to learn from it, so make the difficulty appropriate, we will make it harder as time goes. Generate all needed data for me, or tell me exactly how to get it. Make it realistic

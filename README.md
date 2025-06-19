@@ -11,7 +11,7 @@ The goal is not just to build technical skill, but to tell a story with data tha
 
 ## 🔍 Sample Case Study
 
-### **[Efficient Frontier Portfolio Optimization](./4_efficient_frontier/)**
+### **[Efficient Frontier Portfolio Optimization](./finance/4_efficient_frontier/)**
 
 📌 This is my most developed and comprehensive case study.  
 It demonstrates how to:
@@ -22,7 +22,7 @@ It demonstrates how to:
 - Interpret and communicate results to non-technical stakeholders
 
 **📷 Sample Visualization**  
-<img src="./4_efficient_frontier/efiicient_frontier.png" alt="Efficient Frontier Plot" width="800"/>
+<img src="./finance/4_efficient_frontier/efiicient_frontier.png" alt="Efficient Frontier Plot" width="800"/>
 
 ---
 
@@ -60,6 +60,7 @@ It demonstrates how to:
 ## 🧭 Use Cases
 
 This repo is designed to showcase:
+
 - My growth as a data analyst  
 - My ability to **learn independently** and apply concepts  
 - Real project workflows I could contribute in internship or junior analyst roles
