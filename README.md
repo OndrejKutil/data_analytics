@@ -36,12 +36,12 @@
 
 ## 💼 Skills Demonstrated
 
-- 📈 Exploratory data analysis (EDA) on finance and health datasets  
-- 🧹 Data cleaning and transformation using **pandas**  
-- 📊 Visual storytelling with **matplotlib**, **seaborn**, and **Plotly**  
-- 🤖 Modeling: logistic regression, portfolio optimization  
-- 📉 Time series techniques: resampling, volatility tracking  
-- 💬 Translating results into actionable, human-readable insights
+- Exploratory data analysis (EDA) on finance and health datasets  
+- Data cleaning and transformation using **pandas**  
+- Visual storytelling with **matplotlib**, **seaborn**, and **Plotly**  
+- Modeling: logistic regression, portfolio optimization  
+- Time series techniques: resampling, volatility tracking  
+- Translating results into actionable, human-readable insights
 
 ---
 
