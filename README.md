@@ -6,16 +6,6 @@
 
 ## 🔍 Featured Projects
 
-### **[Heart Attack Risk Classification](./general/heart_attack_rate/analysis.ipynb)**
-
-📌 In this project, I analyze a dataset of patient health indicators to identify factors contributing to heart attack risk and build a predictive **logistic regression model**.
-
-- Exploratory data analysis (heatmaps, boxplots, feature distributions)
-- Fitting and interpreting a logistic regression classifier
-- Evaluating model performance with accuracy, confusion matrix, and ROC curve
-
----
-
 ### **[Bank Customer Churn Model Prediction](./finance/bank_customer_churn/analysis.ipynb)**
 
 📌 In this project, I analyze bank customer data to predict churn using advanced **Random Forest classification** with hyperparameter tuning and comprehensive model validation achieving 97% ROC AUC.
@@ -23,6 +13,16 @@
 - Model comparison across Random Forest, Gradient Boosting, Logistic Regression, and SVM
 - Hyperparameter optimization using GridSearchCV with multi-metric evaluation
 - Learning curve analysis demonstrating excellent generalization with minimal overfitting
+
+---
+
+### **[Heart Attack Risk Classification](./general/heart_attack_rate/analysis.ipynb)**
+
+📌 In this project, I analyze a dataset of patient health indicators to identify factors contributing to heart attack risk and build a predictive **logistic regression model**.
+
+- Exploratory data analysis (heatmaps, boxplots, feature distributions)
+- Fitting and interpreting a logistic regression classifier
+- Evaluating model performance with accuracy, confusion matrix, and ROC curve
 
 ---
 
