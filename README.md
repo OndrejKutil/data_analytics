@@ -6,7 +6,7 @@
 
 ## 🔍 Featured Projects
 
-### **[Heart Attack Risk Classification](./general/heart_attack_rate/)**
+### **[Heart Attack Risk Classification](./general/heart_attack_rate/analysis.ipynb)**
 
 📌 In this project, I analyze a dataset of patient health indicators to identify factors contributing to heart attack risk and build a predictive **logistic regression model**.
 
@@ -16,13 +16,13 @@
 
 ---
 
-### **[Efficient Frontier Portfolio Optimization](./finance/4_efficient_frontier/)**
+### **[Bank Customer Churn Model Prediction](./finance/bank_customer_churn/analysis.ipynb)**
 
-📌 A comprehensive financial case study focused on **portfolio construction** and **risk-return modeling** using historical market data.
+📌 In this project, I analyze bank customer data to predict churn using advanced **Random Forest classification** with hyperparameter tuning and comprehensive model validation achieving 97% ROC AUC.
 
-- Modeling tradeoffs with the **Efficient Frontier**
-- Calculating and comparing Sharpe ratios, volatility, and returns
-- Communicating investment strategy insights to non-technical audiences
+- Model comparison across Random Forest, Gradient Boosting, Logistic Regression, and SVM
+- Hyperparameter optimization using GridSearchCV with multi-metric evaluation
+- Learning curve analysis demonstrating excellent generalization with minimal overfitting
 
 ---
 
