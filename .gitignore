@@ -164,3 +164,7 @@ data/
 datasets/
 *.log
 *.tmp
+
+idk.py
+model/
+results/
