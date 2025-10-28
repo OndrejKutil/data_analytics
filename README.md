@@ -1,12 +1,12 @@
 # Data Analytics Case Studies – Python Portfolio
 
-> This repository is a curated collection of **data analytics case studies** where I apply Python to solve real-world problems across health, finance and other domains.
+> This repository is a curated collection of **data analytics** programs where I apply Python to solve real-world problems across health, finance and other domains.
 
 ---
 
 ## Featured Projects
 
-### **[Bank Customer Churn Model Prediction](./finance/bank_customer_churn/analysis.ipynb)**
+### **[Bank Customer Churn Model Prediction](./src/ML_models/bank_customer_churn/analysis.ipynb)**
 
 In this project, I analyze bank customer data to predict churn using advanced **Random Forest classification** with hyperparameter tuning and comprehensive model validation achieving 97% ROC AUC.
 
@@ -16,7 +16,7 @@ In this project, I analyze bank customer data to predict churn using advanced **
 
 ---
 
-### **[Heart Attack Risk Classification](./general/heart_attack_rate/analysis.ipynb)**
+### **[Heart Attack Risk Classification](./src/ML_models/heart_attack_rate/analysis.ipynb)**
 
 In this project, I analyze a dataset of patient health indicators to identify factors contributing to heart attack risk and build a predictive **logistic regression model**.
 
