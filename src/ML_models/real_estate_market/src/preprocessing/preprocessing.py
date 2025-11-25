@@ -1,126 +1,173 @@
 import json
 from pathlib import Path
-import re
+from typing import Dict
 
-# Get the path relative to the preprocessing.py file
-json_path = Path(__file__).parent.parent / 'scraper' / 'listings.json'
+SAVE_FILES = True  # Set to True to save preprocessed data to file
 
-with open(json_path, 'r', encoding='utf-8') as f:
-    raw_json = json.load(f)
+class Preprocessor:
+    def __init__(self):
+        self.base_path = Path(__file__).parent.parent
+        self.input_path = self.base_path / 'scraper' / 'listings.json'
+        self.output_path = self.base_path / 'preprocessing' / 'preprocessed_listings.json'
 
-def preprocess_data(raw_data: dict) -> dict:
-
-    data = raw_data.copy()
-
-    # Skip if title is None or missing
-    if not data.get('title'):
-        return None
-    
-    title = data['title'].split('m²')
-
-    location = title[1]
-    title = title[0].split(' ')
-    rooms = title[-2]
-    meters = title[-1].replace('\xa0', '')
-
-    data['lokalita'] = location
-    data['část_prahy'] = location.split('-')[1].strip() if '-' in location else None
-    data['adresa'] = location.split(',')[0].strip()
-    data['dispozice'] = rooms
-    data['užitná_plocha'] = int(meters)
-
-    if 'celková_cena' in data:
-        data['cena_czk'] = int(data['celková_cena'].replace('Kč', '').strip()) if 'Kč' in data['celková_cena'] else 'Cena na vyžádání'
-        del data['celková_cena']
-    if 'energetická_náročnost' in data:
-        data['energetická_náročnost'] = data['energetická_náročnost'].split(',')[0]
-        s = data['energetická_náročnost'].split(',')[-1].strip()
-        m = re.match(r'^(\d+)', s)
-        data['energetická_spotřeba_kWh_m2_rok'] = m.group(1) if m else None
-    if 'stavba' in data:
-        stavba = data['stavba'].split(',')
+    def _extract_features_from_description(self, description: str) -> Dict[str, bool]:
+        if not description:
+            return {}
         
-        data['typ_stavby'] = []
-        is_first = True
-        for part in stavba:
-            if 'podlaží' in part.lower() and is_first:
-                data['podlaží'] = part.strip()
-                is_first = False
-                stavba.remove(part)
-            elif 'podlaží' in part.lower() and not is_first:
-                data['podlaží_další'].append(part.strip())
-                stavba.remove(part)
-            else:
-                data['typ_stavby'].append(part.strip())
+        desc_lower = description.lower()
         
-        del data['stavba']
-    if 'infrastruktura' in data:
-        infrastruktura = data['infrastruktura'].split(',')
-        data['infrastruktura'] = [item.strip() for item in infrastruktura]
-    # Handle 'plocha' field - split into separate area types
-    if 'plocha' in data:
-        plocha_text = data['plocha']
-        # Pattern to match area types like "Užitná plocha 44 m²"
-        area_pattern = r'([^0-9]+?)\s+(\d+)\s*m²'
-        matches = re.findall(area_pattern, plocha_text)
+        features = {
+            'desc_has_metro': any(x in desc_lower for x in ['metro', 'stanice metra']),
+            'desc_has_tram': 'tram' in desc_lower,
+            'desc_has_bus': 'autobus' in desc_lower or 'bus' in desc_lower,
+            'desc_has_park': 'park' in desc_lower or 'les' in desc_lower,
+            'desc_has_school': 'škol' in desc_lower, # škola, školka
+            'desc_has_shopping': any(x in desc_lower for x in ['obchod', 'nákup', 'supermarket', 'potraviny']),
+            'desc_is_quiet': any(x in desc_lower for x in ['tichý', 'klid', 'klidná']),
+            'desc_is_sunny': any(x in desc_lower for x in ['světlý', 'slunný', 'prosluněný']),
+            'desc_has_ac': 'klimatiza' in desc_lower,
+            'desc_has_fireplace': 'krb' in desc_lower,
+            'desc_has_floor_heating': 'podlahové topení' in desc_lower or 'podlahové vytápění' in desc_lower,
+            'desc_is_renovated': 'rekonstruk' in desc_lower,
+            'desc_is_new_building': 'novostavb' in desc_lower,
+        }
+        return features
+
+    def _extract_model_data(self, data: Dict) -> Dict:
+        """
+        Extracts features relevant for model training (price, location, physical attributes).
+        """
+        model_data = {}
         
-        for area_type, area_value in matches:
-            area_type = area_type.strip()
-            # Convert to snake_case key
-            key = area_type.lower().replace(' ', '_')
-            data[key] = int(area_value)
+        # Basic info
+        model_data['price_czk'] = data.get('price_czk')
         
-        # Remove the original 'plocha' field
-        del data['plocha']
-    if 'ostatní' in data:
-        s = str(data['ostatní'])
-        start_idx = s.find('K nastěhování')
-        if start_idx != -1:
-            substr = s[start_idx:]
-            m = re.search(r'K nastěhování.*?(\d{4})', substr)
-            if m:
-                data['k_nastěhování'] = substr[:m.end(1)].strip()
-                # remove the matched portion from the original 'ostatní' value
-                remove_end = start_idx + m.end(1)
-                cleaned = (s[:start_idx] + s[remove_end:]).strip()
-                data['ostatní'] = cleaned if cleaned else None
-            else:
-                # no 4-digit number found after marker — keep the rest of the substring
-                data['k_nastěhování'] = substr.strip()
-                # remove the marker and the rest from 'ostatní'
-                cleaned = s[:start_idx].strip()
-                data['ostatní'] = cleaned if cleaned else None
+        # Location
+        model_data['city'] = data.get('city')
+        model_data['district'] = data.get('district')
+        model_data['street'] = data.get('street')
+        model_data['zip_code'] = data.get('zip')
+        
+        # Property details
+        model_data['layout'] = data.get('category_sub') # e.g. 3+kk
+        model_data['building_type'] = data.get('building_type') # Panelová, Cihlová
+        model_data['condition'] = data.get('building_condition')
+        model_data['ownership'] = data.get('ownership')
+        model_data['floor'] = data.get('floor_number')
+        model_data['total_floors'] = data.get('floors')
+        
+        # Areas
+        model_data['usable_area'] = data.get('usable_area') or data.get('floor_area')
+        model_data['balcony_area'] = data.get('balcony_area')
+        model_data['terrace_area'] = data.get('terrace_area')
+        model_data['loggia_area'] = data.get('loggia_area')
+        model_data['cellar_area'] = data.get('cellar_area')
+        
+        # Boolean/Categorical features from structured data
+        model_data['has_balcony'] = bool(data.get('balcony')) or (data.get('balcony_area') is not None and data.get('balcony_area', 0) > 0)
+        model_data['has_terrace'] = bool(data.get('terrace')) or (data.get('terrace_area') is not None and data.get('terrace_area', 0) > 0)
+        model_data['has_loggia'] = bool(data.get('loggia')) or (data.get('loggia_area') is not None and data.get('loggia_area', 0) > 0)
+        model_data['has_cellar'] = bool(data.get('cellar')) or (data.get('cellar_area') is not None and data.get('cellar_area', 0) > 0)
+        model_data['has_garage'] = bool(data.get('garage')) or (data.get('garage_count') is not None and data.get('garage_count', 0) > 0)
+        model_data['has_parking'] = bool(data.get('parking_lots'))
+        model_data['has_elevator'] = True if data.get('elevator') == 'Ano' else False
+        
+        # Energy
+        if data.get('energy_efficiency_rating'):
+             model_data['energy_rating'] = data.get('energy_efficiency_rating', '').split(' ')[0]
         else:
-            data['k_nastěhování'] = None
-    else:
-        data['k_nastěhování'] = None
-        data['ostatní'] = None
-    # Handle k_nastěhování - check if it's not None before processing
-    nastěhování = data.get('k_nastěhování') or ''
-    if 'ihned' in nastěhování.lower():
-        data['k_nastěhování'] = 'Ihned'
-    elif nastěhování:
-        # only keep the date, no k nastěhování text
-        m = re.search(r'(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})', nastěhování)
-        if m:
-            data['k_nastěhování'] = m.group(1)
+             model_data['energy_rating'] = None
 
-    return data
+        return model_data
 
+    def _extract_metadata(self, data: Dict) -> Dict:
+        """
+        Extracts metadata and other useful info not directly used for model training.
+        """
+        metadata = {}
+        metadata['title'] = data.get('name')
+        metadata['price_czk_per_sqm'] = data.get('price_czk_per_sqm')
+        metadata['lat'] = data.get('latitude')
+        metadata['lon'] = data.get('longitude')
+        metadata['seller_id'] = data.get('seller_id')
+        metadata['seller_name'] = data.get('seller_name')
+        metadata['seller_email'] = data.get('seller_email')
+        metadata['seller_phones'] = data.get('seller_phones')
+        metadata['premise_name'] = data.get('premise_name')
+        metadata['premise_web_url'] = data.get('premise_web_url')
+        metadata['images_count'] = data.get('images_count')
+        metadata['image_urls'] = [img.get('url') for img in data.get('images', [])][:5]
+        metadata['listing_url'] = data.get('url')
+        metadata['listing_id'] = data.get('listing_id')
+        metadata['scraped_at'] = data.get('scraped_at')
 
-preprocessed_data = []
-for i in range(len(raw_json)):
-    print(f"Preprocessing {i+1}/{len(raw_json)}")
-    result = preprocess_data(raw_json[i])
-    if result is not None:
-        preprocessed_data.append(result)
-    else:
-        print(f"  -> Skipped listing {i+1} (missing or invalid title)")
+        # Note: Scrape date is not currently in the raw data, but would go here.
+        
+        return metadata
 
-print(f"\nSuccessfully preprocessed {len(preprocessed_data)}/{len(raw_json)} listings")
+    def _preprocess_one_json(self, raw_data: dict) -> dict:
+        # 1. Extract Model Data
+        model_data = self._extract_model_data(raw_data)
+        
+        # 2. Extract from description (add to model data)
+        description = raw_data.get('description', '')
+        desc_features = self._extract_features_from_description(description)
+        model_data.update(desc_features)
+        
+                
+        # Consolidate renovation status
+        if model_data['condition'] == 'Po rekonstrukci':
+            model_data['is_renovated'] = True
+        elif model_data.get('desc_is_renovated'):
+            model_data['is_renovated'] = True
+        else:
+            model_data['is_renovated'] = False
+            
+        # Consolidate new building status
+        if model_data['condition'] == 'Novostavba' or model_data.get('desc_is_new_building'):
+             model_data['is_new_building'] = True
+        else:
+             model_data['is_new_building'] = False
 
-new_json_path = Path(__file__).parent / 'preprocessed_listings.json'
+        # 4. Extract Metadata
+        metadata = self._extract_metadata(raw_data)
 
-with open(new_json_path, 'w', encoding='utf-8') as f:
-    json.dump(preprocessed_data, f, ensure_ascii=False, indent=4)
+        return {
+            'model_training_data': model_data,
+            'metadata': metadata
+        }
+
+    def run(self):
+        if not self.input_path.exists():
+            print(f"Input file not found: {self.input_path}")
+            return
+
+        print(f"Loading data from {self.input_path}...")
+        with open(self.input_path, 'r', encoding='utf-8') as f:
+            raw_data = json.load(f)
+
+        print(f"Preprocessing {len(raw_data)} listings...")
+        preprocessed_data = []
+        for item in raw_data:
+            try:
+                processed = self._preprocess_one_json(item)
+                if processed:
+                    preprocessed_data.append(processed)
+            except Exception as e:
+                print(f"Error processing item: {e}")
+                continue
+
+        print(f"Successfully preprocessed {len(preprocessed_data)} listings.")
+
+        if SAVE_FILES:
+            print(f"Saving to {self.output_path}...")
+            self.output_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.output_path, 'w', encoding='utf-8') as f:
+                json.dump(preprocessed_data, f, ensure_ascii=False, indent=4)
+        
+        return preprocessed_data
+
+if __name__ == "__main__":
+    preprocessor = Preprocessor()
+    preprocessor.run()
 
