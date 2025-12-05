@@ -1,28 +1,30 @@
 # Data Analytics Case Studies – Python Portfolio
 
-> This repository is a curated collection of **data analytics** programs where I apply Python to solve real-world problems across health, finance and other domains.
+> This repository is a curated collection of **data analytics** case studies
 
 ---
 
 ## Featured Projects
 
-### **[Bank Customer Churn Model Prediction](./src/ML_models/bank_customer_churn/analysis.ipynb)**
+### **[Real Estate Price Prediction with Scraping](./src/ML_models/real_estate_market/)**
 
-In this project, I analyze bank customer data to predict churn using advanced **Random Forest classification** with hyperparameter tuning and comprehensive model validation achieving 97% ROC AUC.
+End‑to‑end pipeline that scrapes listings from Sreality.cz, engineers features from structured data and descriptions, and trains a tuned **XGBoost regressor** to predict prices.
 
-- Model comparison across Random Forest, Gradient Boosting, Logistic Regression, and SVM
-- Hyperparameter optimization using GridSearchCV with multi-metric evaluation
-- Learning curve analysis demonstrating excellent generalization with minimal overfitting
+- Async scraping with batching and robust JSON/HTML parsing
+- Feature engineering from text (amenities/POIs), areas, location, condition
+- Hyperparameter tuning (GridSearchCV) with RMSE/R² and feature importance
+- Will implement a simple web-page for interaction with the model
 
 ---
 
-### **[Heart Attack Risk Classification](./src/ML_models/heart_attack_rate/analysis.ipynb)**
+### **[Sentiment Analysis](./src/ML_models/sentiment_analysis/)**
 
-In this project, I analyze a dataset of patient health indicators to identify factors contributing to heart attack risk and build a predictive **logistic regression model**.
+Text classification with both a fine‑tuned **BERT** model and an **LSTM** baseline to compare modern transformers against recurrent architectures.
 
-- Exploratory data analysis (heatmaps, boxplots, feature distributions)
-- Fitting and interpreting a logistic regression classifier
-- Evaluating model performance with accuracy, confusion matrix, and ROC curve
+- Data preprocessing and tokenization; reproducible training pipeline
+- Class imbalance handling and regularization where relevant
+- Evaluation with accuracy, F1, ROC‑AUC, confusion matrix
+- Side‑by‑side comparison of BERT vs LSTM performance and trade‑offs
 
 ---
 

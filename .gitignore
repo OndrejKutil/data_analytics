@@ -129,7 +129,6 @@ dmypy.json
 .pyre/
 
 # Data files
-*.csv
 *.xlsx
 *.xls
 *.parquet
@@ -165,5 +164,6 @@ datasets/
 *.tmp
 
 idk.py
-model/
 results/
+
+uv.lock

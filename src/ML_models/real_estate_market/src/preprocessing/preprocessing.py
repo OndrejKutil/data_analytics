@@ -1,20 +1,26 @@
-import json
 from pathlib import Path
-from typing import Dict
+import pandas as pd
 
 SAVE_FILES = True  # Set to True to save preprocessed data to file
 
 class Preprocessor:
-    def __init__(self):
+    def __init__(self) -> None:
         self.base_path = Path(__file__).parent.parent
-        self.input_path = self.base_path / 'scraper' / 'listings.json'
-        self.output_path = self.base_path / 'preprocessing' / 'preprocessed_listings.json'
+        self.input_path = self.base_path / 'scraper' / 'listings.csv'
+        self.output_path = self.base_path / 'preprocessing' / 'preprocessed_listings.csv'
+    
+    def _safe_get_str(self, data: dict[str, str | None | float | bool | int], key: str, default: str | None | float = None) -> str | None | float:
+        """Safely get string value, handling NaN from CSV"""
+        value = data.get(key, default)
+        if isinstance(value, float) and pd.isna(value):
+            return default
+        return value
 
-    def _extract_features_from_description(self, description: str) -> Dict[str, bool]:
-        if not description:
+    def _extract_features_from_description(self, description: str) -> dict[str, bool]:
+        if not description or pd.isna(description):
             return {}
         
-        desc_lower = description.lower()
+        desc_lower = str(description).lower()
         
         features = {
             'desc_has_metro': any(x in desc_lower for x in ['metro', 'stanice metra']),
@@ -33,128 +39,112 @@ class Preprocessor:
         }
         return features
 
-    def _extract_model_data(self, data: Dict) -> Dict:
+    def _extract_features(self, data: dict[str, str | None | float | bool | int]) -> dict[str, str | None | float | bool | int]:
         """
-        Extracts features relevant for model training (price, location, physical attributes).
+        Extracts all features into a flat structure for CSV output.
         """
-        model_data = {}
+        features = {}
         
         # Basic info
-        model_data['price_czk'] = data.get('price_czk')
+        features['price_czk'] = data.get('price_czk')
         
         # Location
-        model_data['city'] = data.get('city')
-        model_data['district'] = data.get('district')
-        model_data['street'] = data.get('street')
-        model_data['zip_code'] = data.get('zip')
+        features['city'] = self._safe_get_str(data, 'city')
+        features['district'] = self._safe_get_str(data, 'district')
+        features['street'] = self._safe_get_str(data, 'street')
+        features['zip_code'] = self._safe_get_str(data, 'zip')
         
         # Property details
-        model_data['layout'] = data.get('category_sub') # e.g. 3+kk
-        model_data['building_type'] = data.get('building_type') # Panelová, Cihlová
-        model_data['condition'] = data.get('building_condition')
-        model_data['ownership'] = data.get('ownership')
-        model_data['floor'] = data.get('floor_number')
-        model_data['total_floors'] = data.get('floors')
+        features['layout'] = self._safe_get_str(data, 'category_sub') # e.g. 3+kk
+        features['building_type'] = self._safe_get_str(data, 'building_type') # Panelová, Cihlová
+        features['condition'] = self._safe_get_str(data, 'building_condition')
+        features['ownership'] = self._safe_get_str(data, 'ownership')
+        features['floor'] = data.get('floor_number')
+        features['total_floors'] = data.get('floors')
         
         # Areas
-        model_data['usable_area'] = data.get('usable_area') or data.get('floor_area')
-        model_data['balcony_area'] = data.get('balcony_area')
-        model_data['terrace_area'] = data.get('terrace_area')
-        model_data['loggia_area'] = data.get('loggia_area')
-        model_data['cellar_area'] = data.get('cellar_area')
+        features['usable_area'] = data.get('usable_area') or data.get('floor_area')
+        features['balcony_area'] = data.get('balcony_area')
+        features['terrace_area'] = data.get('terrace_area')
+        features['loggia_area'] = data.get('loggia_area')
+        features['cellar_area'] = data.get('cellar_area')
         
         # Boolean/Categorical features from structured data
-        model_data['has_balcony'] = bool(data.get('balcony')) or (data.get('balcony_area') is not None and data.get('balcony_area', 0) > 0)
-        model_data['has_terrace'] = bool(data.get('terrace')) or (data.get('terrace_area') is not None and data.get('terrace_area', 0) > 0)
-        model_data['has_loggia'] = bool(data.get('loggia')) or (data.get('loggia_area') is not None and data.get('loggia_area', 0) > 0)
-        model_data['has_cellar'] = bool(data.get('cellar')) or (data.get('cellar_area') is not None and data.get('cellar_area', 0) > 0)
-        model_data['has_garage'] = bool(data.get('garage')) or (data.get('garage_count') is not None and data.get('garage_count', 0) > 0)
-        model_data['has_parking'] = bool(data.get('parking_lots'))
-        model_data['has_elevator'] = True if data.get('elevator') == 'Ano' else False
+        balcony_area = data.get('balcony_area')
+        features['has_balcony'] = bool(data.get('balcony')) or (isinstance(balcony_area, (int, float)) and balcony_area > 0)
+        terrace_area = data.get('terrace_area')
+        features['has_terrace'] = bool(data.get('terrace')) or (isinstance(terrace_area, (int, float)) and terrace_area > 0)
+        loggia_area = data.get('loggia_area')
+        features['has_loggia'] = bool(data.get('loggia')) or (isinstance(loggia_area, (int, float)) and loggia_area > 0)
+        cellar_area = data.get('cellar_area')
+        features['has_cellar'] = bool(data.get('cellar')) or (isinstance(cellar_area, (int, float)) and cellar_area > 0)
+        garage_count = data.get('garage_count')
+        features['has_garage'] = bool(data.get('garage')) or (isinstance(garage_count, (int, float)) and garage_count > 0)
+        features['has_parking'] = bool(data.get('parking_lots'))
+        elevator = self._safe_get_str(data, 'elevator')
+        features['has_elevator'] = True if elevator == 'Ano' else False
         
         # Energy
-        if data.get('energy_efficiency_rating'):
-             model_data['energy_rating'] = data.get('energy_efficiency_rating', '').split(' ')[0]
+        energy_rating = data.get('energy_efficiency_rating')
+        if energy_rating and isinstance(energy_rating, str):
+             features['energy_rating'] = energy_rating.split(' ')[0]
         else:
-             model_data['energy_rating'] = None
+             features['energy_rating'] = None
 
-        return model_data
+        return features
 
-    def _extract_metadata(self, data: Dict) -> Dict:
-        """
-        Extracts metadata and other useful info not directly used for model training.
-        """
-        metadata = {}
-        metadata['title'] = data.get('name')
-        metadata['price_czk_per_sqm'] = data.get('price_czk_per_sqm')
-        metadata['lat'] = data.get('latitude')
-        metadata['lon'] = data.get('longitude')
-        metadata['seller_id'] = data.get('seller_id')
-        metadata['seller_name'] = data.get('seller_name')
-        metadata['seller_email'] = data.get('seller_email')
-        metadata['seller_phones'] = data.get('seller_phones')
-        metadata['premise_name'] = data.get('premise_name')
-        metadata['premise_web_url'] = data.get('premise_web_url')
-        metadata['images_count'] = data.get('images_count')
-        metadata['image_urls'] = [img.get('url') for img in data.get('images', [])][:5]
-        metadata['listing_url'] = data.get('url')
-        metadata['listing_id'] = data.get('listing_id')
-        metadata['scraped_at'] = data.get('scraped_at')
 
-        # Note: Scrape date is not currently in the raw data, but would go here.
+
+    def _preprocess_one_json(self, raw_data: dict[str, str | None | float | bool | int]) -> dict[str, str | None | float | bool | int]:
+        # 1. Extract features
+        features = self._extract_features(raw_data)
         
-        return metadata
-
-    def _preprocess_one_json(self, raw_data: dict) -> dict:
-        # 1. Extract Model Data
-        model_data = self._extract_model_data(raw_data)
-        
-        # 2. Extract from description (add to model data)
+        # 2. Extract from description
         description = raw_data.get('description', '')
+        # Handle NaN from CSV
+        if isinstance(description, float) and pd.isna(description):
+            description = ''
+        # Ensure description is a string
+        if not isinstance(description, str):
+            description = str(description) if description is not None else ''
         desc_features = self._extract_features_from_description(description)
-        model_data.update(desc_features)
+        features.update(desc_features)
         
-                
-        # Consolidate renovation status
-        if model_data['condition'] == 'Po rekonstrukci':
-            model_data['is_renovated'] = True
-        elif model_data.get('desc_is_renovated'):
-            model_data['is_renovated'] = True
+        # 3. Consolidate renovation status
+        if features['condition'] == 'Po rekonstrukci':
+            features['is_renovated'] = True
+        elif features.get('desc_is_renovated'):
+            features['is_renovated'] = True
         else:
-            model_data['is_renovated'] = False
+            features['is_renovated'] = False
             
-        # Consolidate new building status
-        if model_data['condition'] == 'Novostavba' or model_data.get('desc_is_new_building'):
-             model_data['is_new_building'] = True
+        # 4. Consolidate new building status
+        if features['condition'] == 'Novostavba' or features.get('desc_is_new_building'):
+             features['is_new_building'] = True
         else:
-             model_data['is_new_building'] = False
+             features['is_new_building'] = False
 
-        # 4. Extract Metadata
-        metadata = self._extract_metadata(raw_data)
+        return features
 
-        return {
-            'model_training_data': model_data,
-            'metadata': metadata
-        }
-
-    def run(self):
+    def run(self) -> list[dict[str, str | bool | float | int | None]]:
         if not self.input_path.exists():
             print(f"Input file not found: {self.input_path}")
-            return
+            return []
 
         print(f"Loading data from {self.input_path}...")
-        with open(self.input_path, 'r', encoding='utf-8') as f:
-            raw_data = json.load(f)
-
-        print(f"Preprocessing {len(raw_data)} listings...")
+        raw_df = pd.read_csv(self.input_path, encoding='utf-8')
+        
+        print(f"Preprocessing {len(raw_df)} listings...")
         preprocessed_data = []
-        for item in raw_data:
+        for idx, row in raw_df.iterrows():
             try:
+                # Convert row to dict
+                item = row.to_dict()
                 processed = self._preprocess_one_json(item)
                 if processed:
                     preprocessed_data.append(processed)
             except Exception as e:
-                print(f"Error processing item: {e}")
+                print(f"Error processing item at index {idx}: {e}")
                 continue
 
         print(f"Successfully preprocessed {len(preprocessed_data)} listings.")
@@ -162,12 +152,13 @@ class Preprocessor:
         if SAVE_FILES:
             print(f"Saving to {self.output_path}...")
             self.output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.output_path, 'w', encoding='utf-8') as f:
-                json.dump(preprocessed_data, f, ensure_ascii=False, indent=4)
+            df = pd.DataFrame(preprocessed_data)
+            df.to_csv(self.output_path, index=False, encoding='utf-8')
+            print(f"Saved {len(df)} listings to CSV")
         
         return preprocessed_data
 
 if __name__ == "__main__":
-    preprocessor = Preprocessor()
+    preprocessor: Preprocessor = Preprocessor()
     preprocessor.run()
 

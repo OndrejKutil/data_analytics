@@ -22,11 +22,13 @@ This document explains the transformation of the web scraper from synchronous to
 ### Dependencies
 
 **Before:**
+
 ```python
 import requests  # Synchronous HTTP library
 ```
 
 **After:**
+
 ```python
 import asyncio   # Python's async framework
 import aiohttp   # Asynchronous HTTP library
@@ -48,7 +50,8 @@ import aiohttp   # Asynchronous HTTP library
 ### Mental Model: The Restaurant Analogy
 
 #### **Synchronous Approach (Before):**
-```
+
+```text
 Waiter serves customers ONE at a time:
 🍽️ Take order from Table 1 → wait for kitchen → serve → collect payment
 🍽️ Take order from Table 2 → wait for kitchen → serve → collect payment
@@ -58,7 +61,8 @@ Total time: 30 minutes (10 min × 3 tables)
 ```
 
 #### **Asynchronous Approach (After):**
-```
+
+```text
 Waiter serves customers CONCURRENTLY:
 🍽️ Take order from Table 1 → give to kitchen → don't wait, go to Table 2
 🍽️ Take order from Table 2 → give to kitchen → don't wait, go to Table 3
@@ -73,6 +77,7 @@ Total time: 12 minutes (work on all tables during wait times)
 ### Key Principle
 
 **Web scraping is I/O-bound:**
+
 - 90% of time spent waiting for HTTP responses
 - 10% of time spent parsing HTML
 - **Perfect use case for async!**
@@ -100,7 +105,8 @@ Total: 98 seconds ≈ 1.6 minutes
 ```
 
 **Timeline:**
-```
+
+```text
 Page 1:  [====]
 Page 2:       [====]
 Page 3:            [====]
@@ -132,7 +138,8 @@ Speed Improvement: 8.2x faster! 🚀
 ```
 
 **Timeline:**
-```
+
+```text
 Pages 1-10: [====] All at once!
 
 Batch 1 (Details 1-10):   [======] All at once!
@@ -160,6 +167,7 @@ Batch 5 (Details 41-44):  [======] All at once!
 ### 1. Base Scraper - Async fetch_page()
 
 **Before (Synchronous):**
+
 ```python
 def fetch_page(self, url: str) -> str:
     response = self.session.get(url)  # ⏸️ Blocks here
@@ -168,6 +176,7 @@ def fetch_page(self, url: str) -> str:
 ```
 
 **After (Asynchronous):**
+
 ```python
 async def fetch_page(self, session: aiohttp.ClientSession, url: str) -> str:
     async with session.get(url) as response:  # 🚀 Non-blocking
@@ -176,6 +185,7 @@ async def fetch_page(self, session: aiohttp.ClientSession, url: str) -> str:
 ```
 
 **Changes explained:**
+
 1. **`async def`** - Declares function as asynchronous (returns a coroutine)
 2. **`session` parameter** - Shares connection pool across requests
 3. **`async with`** - Asynchronous context manager
@@ -184,6 +194,7 @@ async def fetch_page(self, session: aiohttp.ClientSession, url: str) -> str:
 ### 2. Link Scraper - Concurrent page fetching
 
 **Before (Sequential):**
+
 ```python
 def scrape(self) -> list[str]:
     self.links = []
@@ -197,6 +208,7 @@ def scrape(self) -> list[str]:
 ```
 
 **After (Concurrent):**
+
 ```python
 async def scrape(self) -> list[str]:
     self.links = []
@@ -226,6 +238,7 @@ async def _scrape_page(self, session: aiohttp.ClientSession, url: str) -> list[s
 ```
 
 **Key concepts:**
+
 - **Task creation:** `tasks.append(...)` creates tasks without executing
 - **Concurrent execution:** `asyncio.gather(*tasks)` runs all at once
 - **Results:** Returns in same order as task list
@@ -233,6 +246,7 @@ async def _scrape_page(self, session: aiohttp.ClientSession, url: str) -> list[s
 ### 3. Detail Scraper - Batched concurrent fetching
 
 **Before (Sequential):**
+
 ```python
 def scrape_multiple(self, listing_urls: list[str]) -> list[dict]:
     results = []
@@ -246,6 +260,7 @@ def scrape_multiple(self, listing_urls: list[str]) -> list[dict]:
 ```
 
 **After (Batched Concurrent):**
+
 ```python
 async def scrape_multiple(self, listing_urls: list[str], 
                          batch_size: int = 10) -> list[dict]:
@@ -288,6 +303,7 @@ async def _scrape_single_safe(self, session, url: str) -> dict:
 ```
 
 **Why batching?**
+
 - **Without batching:** 44 concurrent requests → might trigger rate limiting
 - **With batching:** 10 concurrent requests → polite, controlled, still fast
 - **Adjustable:** Increase `batch_size` for faster (but riskier) scraping
@@ -295,6 +311,7 @@ async def _scrape_single_safe(self, session, url: str) -> dict:
 ### 4. Main Execution
 
 **Before:**
+
 ```python
 if __name__ == "__main__":
     scraper = LinkScraper(num_pages=10)
@@ -305,6 +322,7 @@ if __name__ == "__main__":
 ```
 
 **After:**
+
 ```python
 async def main():
     """Main async function"""
@@ -324,6 +342,7 @@ if __name__ == "__main__":
 ```
 
 **Critical points:**
+
 - **`asyncio.run(main())`** - Starts the event loop (only call once)
 - **`await`** - Required for all async function calls
 - **Regular I/O** (file writing) still works normally
@@ -346,6 +365,7 @@ result = await my_function()  # "Hello"
 ```
 
 **Rules:**
+
 - `async def` creates a coroutine function
 - Can only be awaited inside another async function
 - Top-level entry point: `asyncio.run()`
@@ -362,6 +382,7 @@ async def fetch_data():
 ```
 
 **What happens:**
+
 1. Execution reaches `await`
 2. Function pauses (but doesn't block!)
 3. Event loop switches to another task
@@ -380,6 +401,7 @@ results = await asyncio.gather(
 ```
 
 **Variants:**
+
 ```python
 # Create tasks from list
 tasks = [fetch_page(i) for i in range(10)]
@@ -399,6 +421,7 @@ async with aiohttp.ClientSession() as session:
 ```
 
 **Benefits:**
+
 - Manages connection pooling
 - Automatic resource cleanup
 - Reuses TCP connections (faster!)
@@ -596,12 +619,14 @@ pip install -r requirements.txt
 ### When to Use Async
 
 ✅ **Good for:**
+
 - Web scraping (I/O-bound)
 - API calls (network-bound)
 - Database queries (I/O-bound)
 - File I/O (reading/writing many files)
 
 ❌ **Not ideal for:**
+
 - CPU-intensive tasks (use multiprocessing instead)
 - Simple scripts with few requests
 - When simplicity is more important than speed

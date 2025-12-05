@@ -6,9 +6,13 @@ from abc import ABC, abstractmethod
 from typing import Any
 import json
 from pathlib import Path
+import pandas as pd
 
 PAGES_TO_SCRAPE = None  # Set to None to scrape all available pages
 SAVE_FILES = True  # Set to True to save scraped data to file
+BATCH_SIZE = 30  # Number of concurrent requests when scraping details
+# Set save path for incremental saves if SAVE_FILES is enabled
+SAVE_PATH = Path(__file__).parent / 'listings.csv' if SAVE_FILES else None
 
 
 class BaseScraper(ABC):
@@ -33,12 +37,12 @@ class BaseScraper(ABC):
         return BeautifulSoup(html, 'html.parser')
 
     @abstractmethod
-    async def scrape(self, *args, **kwargs) -> Any:
+    async def scrape(self, *args: Any, **kwargs: Any) -> Any:
         """Main scraping method - must be implemented by subclasses"""
         pass
 
     @abstractmethod
-    def parse(self, soup: BeautifulSoup, *args, **kwargs) -> Any:
+    def parse(self, soup: BeautifulSoup, *args: Any, **kwargs: Any) -> Any:
         """Parse the BeautifulSoup object - must be implemented by subclasses"""
         pass
 
@@ -81,47 +85,72 @@ class LinkScraper(BaseScraper):
     
     async def _scrape_page(self, session: aiohttp.ClientSession, url: str) -> list[str]:
         """Scrape a single page"""
-        html = await self.fetch_page(session, url)
-        soup = self.parse_html(html)
-        return self.parse(soup)
+        try:
+            html = await self.fetch_page(session, url)
+            soup = self.parse_html(html)
+            return self.parse(soup)
+        except Exception as e:
+            print(f"\nWarning: Failed to scrape {url}: {e}")
+            return []
     
     async def _detect_total_pages(self, session: aiohttp.ClientSession) -> int:
-        """Detect the total number of pages available"""
+        """Detect the total number of pages available by binary search"""
         try:
-            # Fetch the first page to get pagination info
+            # First, get an upper bound estimate from the first page
             url = f"{self.pages_url}?strana=1"
             html = await self.fetch_page(session, url)
             soup = self.parse_html(html)
             
-            # Look for pagination elements - sreality.cz uses specific pagination structure
-            # Try to find the last page number from pagination links
+            # Try to find estimated max from pagination links
             pagination = soup.select('a[href*="strana="]')
+            estimated_max = 1
             
-            if not pagination:
-                print("Warning: Could not detect pagination, defaulting to 1 page")
-                return 1
-            
-            # Extract page numbers from pagination links
-            page_numbers = []
             for link in pagination:
                 href = link.get('href', '')
                 if isinstance(href, str):
                     match = re.search(r'strana=(\d+)', href)
                     if match:
-                        page_numbers.append(int(match.group(1)))
-            
-            if page_numbers:
-                total_pages = max(page_numbers)
-                return total_pages
+                        estimated_max = max(estimated_max, int(match.group(1)))
             
             # Fallback: try to find text like "strana 1 z 50"
-            page_text = soup.get_text()
-            match = re.search(r'strana \d+ z (\d+)', page_text, re.IGNORECASE)
-            if match:
-                return int(match.group(1))
+            if estimated_max == 1:
+                page_text = soup.get_text()
+                match = re.search(r'strana \d+ z (\d+)', page_text, re.IGNORECASE)
+                if match:
+                    estimated_max = int(match.group(1))
             
-            print("Warning: Could not detect total pages, defaulting to 1")
-            return 1
+            if estimated_max == 1:
+                print("Warning: Could not detect pagination, defaulting to 1 page")
+                return 1
+            
+            # Now verify the actual last page exists using binary search
+            # This handles cases where pagination shows pages that don't exist
+            left, right = 1, estimated_max
+            last_valid_page = 1
+            
+            while left <= right:
+                mid = (left + right) // 2
+                test_url = f"{self.pages_url}?strana={mid}"
+                
+                try:
+                    async with session.get(test_url) as response:
+                        if response.status == 200:
+                            # Check if page has listings (not empty)
+                            html = await response.text()
+                            soup = self.parse_html(html)
+                            links = self.parse(soup)
+                            
+                            if links:  # Page exists and has listings
+                                last_valid_page = mid
+                                left = mid + 1
+                            else:  # Page exists but empty
+                                right = mid - 1
+                        else:  # 404 or other error
+                            right = mid - 1
+                except:
+                    right = mid - 1
+            
+            return last_valid_page
             
         except Exception as e:
             print(f"Error detecting total pages: {e}. Defaulting to 1 page")
@@ -131,7 +160,7 @@ class LinkScraper(BaseScraper):
         """
         Parse a full search results page and return a list of links to individual listings
         """
-        links: list = []
+        links: list[str] = []
 
         # Primary selector for list items; fallback to id-based selector if empty
         li_nodes = soup.select('ul.MuiGrid2-root.MuiGrid2-container.MuiGrid2-direction-xs-row.css-1fesoy9 > li')
@@ -164,7 +193,7 @@ class LinkScraper(BaseScraper):
             return str(href) if href else None
         return None
 
-    def _clean_links(self):
+    def _clean_links(self) -> None:
         """Convert relative URLs to absolute URLs"""
         for i in range(len(self.links)):
             if self.links[i] and not self.links[i].startswith(self.base_url):
@@ -176,7 +205,7 @@ class DetailScraper(BaseScraper):
     Scraper for extracting detailed information from individual listing pages.
     Inherits from BaseScraper and implements detail page parsing logic.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(base_url="https://www.sreality.cz")
 
     async def scrape(self, session: aiohttp.ClientSession, listing_url: str) -> dict[str, Any]:
@@ -206,11 +235,17 @@ class DetailScraper(BaseScraper):
                 json_data = json.loads(script_tag.string)
                 estate_data = json_data.get('props', {}).get('pageProps', {}).get('dehydratedState', {}).get('queries', [])
                 
+                if not estate_data:
+                    raise ValueError("No estate_data found in JSON")
+                
                 # Find the estate query
                 for query in estate_data:
                     if 'estate' in query.get('queryKey', []):
                         estate_info = query.get('state', {}).get('data', {})
-                        if estate_info:
+                        if not estate_info:
+                            continue
+                            
+                        try:
                             # Extract all available fields from the structured data
                             
                             # Basic info
@@ -226,24 +261,24 @@ class DetailScraper(BaseScraper):
                             data['price_summary_old_czk'] = estate_info.get('priceSummaryOldCzk')
                             
                             # Price currency and unit
-                            price_currency = estate_info.get('priceCurrencyCb', {})
+                            price_currency = estate_info.get('priceCurrencyCb') or {}
                             data['price_currency'] = price_currency.get('name')
                             
-                            price_unit = estate_info.get('priceUnitCb', {})
+                            price_unit = estate_info.get('priceUnitCb') or {}
                             data['price_unit'] = price_unit.get('name')
                             
                             # Category information
-                            category_main = estate_info.get('categoryMainCb', {})
+                            category_main = estate_info.get('categoryMainCb') or {}
                             data['category_main'] = category_main.get('name')
                             
-                            category_sub = estate_info.get('categorySubCb', {})
+                            category_sub = estate_info.get('categorySubCb') or {}
                             data['category_sub'] = category_sub.get('name')
                             
-                            category_type = estate_info.get('categoryTypeCb', {})
+                            category_type = estate_info.get('categoryTypeCb') or {}
                             data['category_type'] = category_type.get('name')
                             
                             # Location data
-                            locality = estate_info.get('locality', {})
+                            locality = estate_info.get('locality') or {}
                             data['latitude'] = locality.get('latitude')
                             data['longitude'] = locality.get('longitude')
                             data['city'] = locality.get('city')
@@ -258,7 +293,10 @@ class DetailScraper(BaseScraper):
                             data['quarter'] = locality.get('quarter')
                             data['municipality'] = locality.get('municipality')
                             data['inaccuracy_type'] = locality.get('inaccuracyType')
-                            
+                        except Exception as e:
+                            print(f"Warning: Error extracting basic/location data: {e}")
+                        
+                        try:
                             # Images
                             images = estate_info.get('images', [])
                             image_urls = []
@@ -285,9 +323,12 @@ class DetailScraper(BaseScraper):
                             # Panorama
                             data['has_panorama'] = estate_info.get('panorama', False)
                             data['matterport_url'] = estate_info.get('matterportUrl')
-                            
+                        except Exception as e:
+                            print(f"Warning: Error extracting media data: {e}")
+                        
+                        try:
                             # Agency/Seller information
-                            seller = estate_info.get('seller', {})
+                            seller = estate_info.get('seller') or {}
                             data['seller_id'] = seller.get('id')
                             data['seller_name'] = seller.get('name')
                             data['seller_email'] = seller.get('email')
@@ -295,7 +336,7 @@ class DetailScraper(BaseScraper):
                             phones = seller.get('phones', [])
                             data['seller_phones'] = [p.get('phone') for p in phones] if phones else []
                             
-                            premise = estate_info.get('premise', {})
+                            premise = estate_info.get('premise') or {}
                             data['premise_id'] = premise.get('id')
                             data['premise_name'] = premise.get('name')
                             data['premise_ico'] = premise.get('ico')
@@ -303,13 +344,16 @@ class DetailScraper(BaseScraper):
                             data['premise_web_url'] = premise.get('webUrl')
                             data['premise_review_count'] = premise.get('reviewCount')
                             data['premise_review_score'] = premise.get('reviewScore')
-                            
+                        except Exception as e:
+                            print(f"Warning: Error extracting seller data: {e}")
+                        
+                        try:
                             # Property parameters
-                            params = estate_info.get('params', {})
+                            params = estate_info.get('params') or {}
                             
                             # Building details
-                            data['building_type'] = params.get('buildingType', {}).get('name')
-                            data['building_condition'] = params.get('buildingCondition', {}).get('name')
+                            data['building_type'] = (params.get('buildingType') or {}).get('name')
+                            data['building_condition'] = (params.get('buildingCondition') or {}).get('name')
                             data['building_area'] = params.get('buildingArea')
                             data['acceptance_year'] = params.get('acceptanceYear')
                             data['reconstruction_year'] = params.get('reconstructionYear')
@@ -335,66 +379,70 @@ class DetailScraper(BaseScraper):
                             data['basin_area'] = params.get('basinArea')
                             
                             # Amenities
-                            data['elevator'] = params.get('elevator', {}).get('name')
+                            data['elevator'] = (params.get('elevator') or {}).get('name')
                             data['garage'] = params.get('garage', False)
                             data['garage_count'] = params.get('garageCount')
                             data['parking_lots'] = params.get('parkingLots', False)
-                            data['furnished'] = params.get('furnished', {}).get('name')
+                            data['furnished'] = (params.get('furnished') or {}).get('name')
                             data['garret'] = params.get('garret', False)
                             
                             # Ownership and legal
-                            data['ownership'] = params.get('ownership', {}).get('name')
+                            data['ownership'] = (params.get('ownership') or {}).get('name')
                             
                             # Energy and utilities
-                            data['energy_efficiency_rating'] = params.get('energyEfficiencyRating', {}).get('name')
-                            data['energy_performance_certificate'] = params.get('energyPerformanceCertificate', {}).get('name')
+                            data['energy_efficiency_rating'] = (params.get('energyEfficiencyRating') or {}).get('name')
+                            data['energy_performance_certificate'] = (params.get('energyPerformanceCertificate') or {}).get('name')
                             data['low_energy'] = params.get('lowEnergy', False)
-                            
+                        except Exception as e:
+                            print(f"Warning: Error extracting property parameters: {e}")
+                        
+                        try:
                             # Heating
+                            params = estate_info.get('params') or {}
                             heating_set = params.get('heatingSet', [])
-                            data['heating_types'] = [h.get('name') for h in heating_set] if heating_set else []
+                            data['heating_types'] = [h.get('name') for h in heating_set if h] if heating_set else []
                             
                             heating_source_set = params.get('heatingSourceSet', [])
-                            data['heating_sources'] = [h.get('name') for h in heating_source_set] if heating_source_set else []
+                            data['heating_sources'] = [h.get('name') for h in heating_source_set if h] if heating_source_set else []
                             
                             heating_element_set = params.get('heatingElementSet', [])
-                            data['heating_elements'] = [h.get('name') for h in heating_element_set] if heating_element_set else []
+                            data['heating_elements'] = [h.get('name') for h in heating_element_set if h] if heating_element_set else []
                             
                             water_heat_source_set = params.get('waterHeatSourceSet', [])
-                            data['water_heat_sources'] = [w.get('name') for w in water_heat_source_set] if water_heat_source_set else []
+                            data['water_heat_sources'] = [w.get('name') for w in water_heat_source_set if w] if water_heat_source_set else []
                             
                             # Utilities
                             water_set = params.get('waterSet', [])
-                            data['water_types'] = [w.get('name') for w in water_set] if water_set else []
+                            data['water_types'] = [w.get('name') for w in water_set if w] if water_set else []
                             
                             gully_set = params.get('gullySet', [])
-                            data['sewage_types'] = [g.get('name') for g in gully_set] if gully_set else []
+                            data['sewage_types'] = [g.get('name') for g in gully_set if g] if gully_set else []
                             
                             gas_set = params.get('gasSet', [])
-                            data['gas_types'] = [g.get('name') for g in gas_set] if gas_set else []
+                            data['gas_types'] = [g.get('name') for g in gas_set if g] if gas_set else []
                             
                             electricity_set = params.get('electricitySet', [])
-                            data['electricity_types'] = [e.get('name') for e in electricity_set] if electricity_set else []
+                            data['electricity_types'] = [e.get('name') for e in electricity_set if e] if electricity_set else []
                             
                             # Telecommunications
                             telecom_set = params.get('telecommunicationSet', [])
-                            data['telecommunication_types'] = [t.get('name') for t in telecom_set] if telecom_set else []
+                            data['telecommunication_types'] = [t.get('name') for t in telecom_set if t] if telecom_set else []
                             
                             internet_connection_set = params.get('internetConnectionTypeSet', [])
-                            data['internet_connection_types'] = [i.get('name') for i in internet_connection_set] if internet_connection_set else []
+                            data['internet_connection_types'] = [i.get('name') for i in internet_connection_set if i] if internet_connection_set else []
                             data['internet_provider'] = params.get('internetConnectionProvider')
                             data['internet_speed'] = params.get('internetConnectionSpeed')
                             
                             # Transport
                             transport_set = params.get('transportSet', [])
-                            data['transport_types'] = [t.get('name') for t in transport_set] if transport_set else []
+                            data['transport_types'] = [t.get('name') for t in transport_set if t] if transport_set else []
                             
                             road_type_set = params.get('roadTypeSet', [])
-                            data['road_types'] = [r.get('name') for r in road_type_set] if road_type_set else []
+                            data['road_types'] = [r.get('name') for r in road_type_set if r] if road_type_set else []
                             
                             # Location characteristics
-                            data['object_location'] = params.get('objectLocation', {}).get('name')
-                            data['surroundings_type'] = params.get('surroundingsType', {}).get('name')
+                            data['object_location'] = (params.get('objectLocation') or {}).get('name')
+                            data['surroundings_type'] = (params.get('surroundingsType') or {}).get('name')
                             
                             # Dates
                             data['ready_date'] = params.get('readyDate')
@@ -402,7 +450,10 @@ class DetailScraper(BaseScraper):
                             data['edited'] = params.get('edited')
                             data['beginning_date'] = params.get('beginningDate')
                             data['finish_date'] = params.get('finishDate')
-                            
+                        except Exception as e:
+                            print(f"Warning: Error extracting utilities/transport data: {e}")
+                        
+                        try:
                             # Additional flags
                             data['is_exclusively'] = estate_info.get('isExclusively', False)
                             
@@ -411,18 +462,21 @@ class DetailScraper(BaseScraper):
                             data['nearby_pois_count'] = len(nearest)
                             
                             # Extended POIs by category
-                            extended_pois = estate_info.get('extendedPois', {})
+                            extended_pois = estate_info.get('extendedPois') or {}
                             if extended_pois:
-                                data['nearby_transport'] = len(extended_pois.get('transport', {}).get('values', []))
-                                data['nearby_doctors'] = len(extended_pois.get('doctors', {}).get('values', []))
-                                data['nearby_grocery'] = len(extended_pois.get('grocery', {}).get('values', []))
-                                data['nearby_leisure'] = len(extended_pois.get('leisure', {}).get('values', []))
-                                data['nearby_restaurants'] = len(extended_pois.get('restaurants', {}).get('values', []))
-                                data['nearby_schools'] = len(extended_pois.get('schools', {}).get('values', []))
+                                data['nearby_transport'] = len((extended_pois.get('transport') or {}).get('values', []))
+                                data['nearby_doctors'] = len((extended_pois.get('doctors') or {}).get('values', []))
+                                data['nearby_grocery'] = len((extended_pois.get('grocery') or {}).get('values', []))
+                                data['nearby_leisure'] = len((extended_pois.get('leisure') or {}).get('values', []))
+                                data['nearby_restaurants'] = len((extended_pois.get('restaurants') or {}).get('values', []))
+                                data['nearby_schools'] = len((extended_pois.get('schools') or {}).get('values', []))
+                        except Exception as e:
+                            print(f"Warning: Error extracting POI data: {e}")
                             
-                            break
-            except (json.JSONDecodeError, KeyError, AttributeError) as e:
-                print(f"Warning: Could not parse JSON data: {e}")
+                        break
+                        
+            except Exception as e:
+                print(f"Warning: Could not parse JSON structure: {e}")
                 # Will fall back to HTML parsing
         
         # Fallback: If JSON parsing failed, extract from HTML
@@ -457,13 +511,15 @@ class DetailScraper(BaseScraper):
         
         return data
 
-    async def scrape_multiple(self, listing_urls: list[str], batch_size: int = 10) -> list[dict[str, Any]]:
+    async def scrape_multiple(self, listing_urls: list[str], batch_size: int = 10, 
+                             save_path: Path | None = None) -> list[dict[str, Any]]:
         """
-        Scrape multiple listing URLs asynchronously with batching
+        Scrape multiple listing URLs asynchronously with batching and incremental saves
         
         Args:
             listing_urls: List of URLs to scrape
             batch_size: Number of concurrent requests (default: 10)
+            save_path: Path to save incremental results (optional). If provided, saves after each batch.
         """
         results = []
         
@@ -483,6 +539,10 @@ class DetailScraper(BaseScraper):
                 batch_results = await asyncio.gather(*tasks)
                 results.extend(batch_results)
                 
+                # Incremental save after each batch
+                if save_path and SAVE_FILES:
+                    self._save_results(results, save_path)
+                
                 # Optional: Add a small delay between batches to be polite
                 if i + batch_size < len(listing_urls):
                     await asyncio.sleep(0.5)
@@ -500,10 +560,31 @@ class DetailScraper(BaseScraper):
         except Exception as e:
             print(f"Error scraping {url}: {e}")
             return {'url': url, 'error': str(e)}
+    
+    def _save_results(self, results: list[dict[str, Any]], save_path: Path) -> None:
+        """Save results to CSV file with proper formatting"""
+        if not results:
+            return
+            
+        # Convert list of dicts to DataFrame
+        df = pd.DataFrame(results)
+        
+        # Convert list columns to JSON strings for CSV compatibility
+        list_columns = ['images', 'videos', 'seller_phones', 'heating_types', 'heating_sources', 
+                       'heating_elements', 'water_heat_sources', 'water_types', 'sewage_types', 
+                       'gas_types', 'electricity_types', 'telecommunication_types', 
+                       'internet_connection_types', 'transport_types', 'road_types']
+        
+        for col in list_columns:
+            if col in df.columns:
+                df[col] = df[col].apply(lambda x: json.dumps(x, ensure_ascii=False) if isinstance(x, list) else x)
+        
+        # Save to CSV (overwrites previous version with updated data)
+        df.to_csv(save_path, index=False, encoding='utf-8')
 
 
 class Scraper():
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     async def scrape_sreality(self, default_pages_amount: int | None = PAGES_TO_SCRAPE) -> list[dict[str, str]]:
@@ -528,16 +609,12 @@ class Scraper():
         if links:
 
             detail_scraper = DetailScraper()
-            details = await detail_scraper.scrape_multiple(links, batch_size=10)
+
             
-            if SAVE_FILES:
-
-                path = Path(__file__).parent / 'listings.json'
-
-                with open(path, 'w', encoding='utf-8') as f:
-                    json.dump(details, f, ensure_ascii=False, indent=4)
-
-                print(f"Saved to: {path}")
+            details = await detail_scraper.scrape_multiple(links, batch_size=BATCH_SIZE, save_path=SAVE_PATH)
+            
+            if SAVE_FILES and SAVE_PATH:
+                print(f"Saved to: {SAVE_PATH}")
             
             print(f"Successfully scraped {len(details)} listings")
 
@@ -550,4 +627,4 @@ class Scraper():
 
 if __name__ == "__main__":
     scraper = Scraper()
-    data = asyncio.run(scraper.scrape_sreality(default_pages_amount=1))
+    data = asyncio.run(scraper.scrape_sreality(default_pages_amount=PAGES_TO_SCRAPE))
